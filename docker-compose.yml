@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: weather_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-your_password}
+      MYSQL_DATABASE: ${DB_NAME:-weather_monitoring}
+      MYSQL_USER: ${DB_USER:-weather_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-your_password}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    networks:
+      - weather_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-your_password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Data Ingestion Service (separate container)
+  ingestion:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: weather_ingestion
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-weather_user}
+      DB_PASSWORD: ${DB_PASSWORD:-your_password}
+      DB_NAME: ${DB_NAME:-weather_monitoring}
+      WEATHER_API_URL: ${WEATHER_API_URL:-https://api.open-meteo.com/v1/forecast}
+      WEATHER_API_KEY: ${WEATHER_API_KEY:-}
+      INGESTION_INTERVAL_MINUTES: ${INGESTION_INTERVAL_MINUTES:-10}
+      TRACKED_CITIES: ${TRACKED_CITIES:-London,Dubai,Tokyo}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    networks:
+      - weather_network
+    command: sh -c "sleep 15 && node dist/services/ingestionService.js"
+
+networks:
+  weather_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
