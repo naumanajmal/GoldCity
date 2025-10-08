@@ -19,7 +19,6 @@ const Dashboard: React.FC = () => {
     dispatch(fetchAnalytics(24));
 
     // Connect to WebSocket
-    const socket = socketService.connect();
 
     socketService.onConnect(() => {
       console.log('WebSocket connected');
