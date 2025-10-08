@@ -2,6 +2,26 @@ version: '3.8'
 
 services:
  
+  # Frontend Service
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+    container_name: weather_frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    networks:
+      - weather_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
   # Backend API Service
   backend:
     build:
@@ -12,13 +32,13 @@ services:
     ports:
       - "${BACKEND_PORT:-3001}:3001"
     environment:
-      NODE_ENV: ${NODE_ENV:-production}
-      DB_HOST: ${DB_HOST:-localhost}
-      DB_PORT: ${DB_PORT:-3306}
-      DB_USER: ${DB_USER:-weather_user}
-      DB_PASSWORD: ${DB_PASSWORD:-your_password}
-      DB_NAME: ${DB_NAME:-weather_monitoring}
-      PORT: 3001
+      NODE_ENV: ${NODE_ENV}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      PORT: ${PORT}
     networks:
       - weather_network
     healthcheck:
@@ -36,16 +56,16 @@ services:
     container_name: weather_ingestion
     restart: unless-stopped
     environment:
-      NODE_ENV: ${NODE_ENV:-production}
-      DB_HOST: ${DB_HOST:-localhost}
-      DB_PORT: ${DB_PORT:-3306}
-      DB_USER: ${DB_USER:-weather_user}
-      DB_PASSWORD: ${DB_PASSWORD:-your_password}
-      DB_NAME: ${DB_NAME:-weather_monitoring}
-      WEATHER_API_URL: ${WEATHER_API_URL:-https://api.open-meteo.com/v1/forecast}
-      WEATHER_API_KEY: ${WEATHER_API_KEY:-}
-      INGESTION_INTERVAL_MINUTES: ${INGESTION_INTERVAL_MINUTES:-10}
-      TRACKED_CITIES: ${TRACKED_CITIES:-London,Dubai,Tokyo}
+      NODE_ENV: ${NODE_ENV}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      WEATHER_API_URL: ${WEATHER_API_URL}
+      WEATHER_API_KEY: ${WEATHER_API_KEY}
+      INGESTION_INTERVAL_MINUTES: ${INGESTION_INTERVAL_MINUTES}
+      TRACKED_CITIES: ${TRACKED_CITIES}
     depends_on:
       backend:
         condition: service_healthy
