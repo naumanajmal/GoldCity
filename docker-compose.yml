@@ -1,28 +1,32 @@
 version: '3.8'
 
 services:
-  # MySQL Database
-  mysql:
-    image: mysql:8.0
-    container_name: weather_mysql
+ 
+  # Backend API Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: weather_backend
     restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-your_password}
-      MYSQL_DATABASE: ${DB_NAME:-weather_monitoring}
-      MYSQL_USER: ${DB_USER:-weather_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-your_password}
     ports:
-      - "${DB_PORT:-3306}:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./setup.sql:/docker-entrypoint-initdb.d/setup.sql
+      - "${BACKEND_PORT:-3001}:3001"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DB_HOST: ${DB_HOST:-localhost}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USER: ${DB_USER:-weather_user}
+      DB_PASSWORD: ${DB_PASSWORD:-your_password}
+      DB_NAME: ${DB_NAME:-weather_monitoring}
+      PORT: 3001
     networks:
       - weather_network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-your_password}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      start_period: 40s
+      retries: 3
 
   # Data Ingestion Service (separate container)
   ingestion:
@@ -33,8 +37,8 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
-      DB_HOST: mysql
-      DB_PORT: 3306
+      DB_HOST: ${DB_HOST:-localhost}
+      DB_PORT: ${DB_PORT:-3306}
       DB_USER: ${DB_USER:-weather_user}
       DB_PASSWORD: ${DB_PASSWORD:-your_password}
       DB_NAME: ${DB_NAME:-weather_monitoring}
@@ -43,10 +47,8 @@ services:
       INGESTION_INTERVAL_MINUTES: ${INGESTION_INTERVAL_MINUTES:-10}
       TRACKED_CITIES: ${TRACKED_CITIES:-London,Dubai,Tokyo}
     depends_on:
-      mysql:
-        condition: service_healthy
       backend:
-        condition: service_started
+        condition: service_healthy
     networks:
       - weather_network
     command: sh -c "sleep 15 && node dist/services/ingestionService.js"
@@ -54,7 +56,3 @@ services:
 networks:
   weather_network:
     driver: bridge
-
-volumes:
-  mysql_data:
-    driver: local
