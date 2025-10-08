@@ -9,8 +9,9 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Install dependencies
-RUN npm ci
+# Install ALL dependencies (including devDependencies needed for build)
+# Force install all deps regardless of NODE_ENV
+RUN npm ci --include=dev
 
 # Copy source code
 COPY src ./src
